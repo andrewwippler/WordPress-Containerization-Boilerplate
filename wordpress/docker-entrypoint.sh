@@ -64,9 +64,6 @@ if ($installWP) {
 } 
 
 // see if we need to copy files over
-include '/var/www/html-original/wp-includes/version.php';
-$containerWPversion = $wp_version;
-
 if (file_exists('/var/www/html/wp-includes/version.php')) {
 	include '/var/www/html/wp-includes/version.php';
 	$installedWPversion = $wp_version;
@@ -82,9 +79,11 @@ if(version_compare($containerWPversion, $installedWPversion, '>')) {
 }
 
 // theme
-if (filemtime('/var/www/html-original/wp-content/themes') > filemtime('/var/www/html/wp-content/themes')) {
-	fwrite($stderr, "Updating theme files\n");
-	exec('rsync -au --delete-after /var/www/html-original/wp-content/themes/ /var/www/html/wp-content/themes');
+if (file_exists('/var/www/html/wp-includes/version.php')) {
+	if (filemtime('/var/www/html-original/wp-content/themes') > filemtime('/var/www/html/wp-content/themes')) {
+		fwrite($stderr, "Updating theme files\n");
+		exec('rsync -au --delete-after /var/www/html-original/wp-content/themes/ /var/www/html/wp-content/themes');
+	}
 }
 
 // plugins
