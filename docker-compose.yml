@@ -21,7 +21,7 @@ services:
       - WORDPRESS_DB_PASSWORD=secretPASS
       - WORDPRESS_VERSION=latest
       - WORDPRESS_INSTALL=true
-      - WORDPRESS_PLUGINS=wp-smushit,wp-fastest-cache,google-sitemap-generator,jetpack
+      - WORDPRESS_PLUGINS=wp-smushit,wp-fastest-cache,jetpack
       - WORDPRESS_PLUGINS_INSTALL=true
     ports:
-      - 8080:80
+      - 8080:8080
