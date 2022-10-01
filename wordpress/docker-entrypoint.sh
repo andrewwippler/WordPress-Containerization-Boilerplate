@@ -11,15 +11,10 @@ TERM=xterm PAGER='busybox less' php -- <<'EOPHP'
 
 $stderr = fopen('php://stderr', 'w');
 
-// https://codex.wordpress.org/Editing_wp-config.php#MySQL_Alternate_Port
-//   "hostname:port"
-// https://codex.wordpress.org/Editing_wp-config.php#MySQL_Sockets_or_Pipes
-//   "hostname:unix-socket-path"
-list($host, $socket) = explode(':', getenv('WORDPRESS_DB_HOST'), 2);
+list($host, $socket) = explode(':', getenv('WORDPRESS_DB_HOST').':3306:3007', 2);
 $port = 0;
 if (is_numeric($socket)) {
 	$port = (int) $socket;
-	$socket = null;
 }
 $user = getenv('WORDPRESS_DB_USER');
 $pass = getenv('WORDPRESS_DB_PASSWORD');
@@ -27,16 +22,22 @@ $dbName = getenv('WORDPRESS_DB_NAME');
 
 $maxTries = 10;
 do {
-	$mysql = new mysqli($host, $user, $pass, '', $port, $socket);
-	if ($mysql->connect_error) {
-		fwrite($stderr, 'MySQL Connection Error: (' . $mysql->connect_errno . ') ' . $mysql->connect_error . "\n");
-		--$maxTries;
-		if ($maxTries <= 0) {
-			exit(1);
-		}
-		sleep(3);
-	}
-} while ($mysql->connect_error);
+  try {
+    sleep(5);
+    $mysql = new mysqli($host, $user, $pass, '', $port);
+    } catch (Exception $e) {
+    fwrite($stderr, 'MySQL Connection Error: (' . $e . ') ' . "\n");
+    fwrite($stderr, 'MySQL Connection Error: waiting 3 seconds...' . "\n");
+    --$maxTries;
+    sleep(3);
+  }
+} while ($maxTries >= 1 && !$mysql->ping());
+
+if (!$mysql->ping()) {
+  fwrite($stderr, 'MySQL not connected' . "\n");
+  exit(1);
+}
+
 
 if (!$mysql->query('CREATE DATABASE IF NOT EXISTS `' . $mysql->real_escape_string($dbName) . '`')) {
 	fwrite($stderr, "\n" . 'MySQL "CREATE DATABASE" Error: ' . $mysql->error . "\n");
@@ -59,9 +60,9 @@ if ($installWP) {
 	$wpPass = getenv('WORDPRESS_USER_PASS');
 	$wpEmail = getenv('WORDPRESS_USER_EMAIL');
 	$wpURL = getenv('WORDPRESS_USER_URL');
-	exec("wp --allow-root core install --skip-email --url=$wpURL --title='Creativity is Coming' --admin_user=$wpUser --admin_password=$wpPass --admin_email=$wpEmail");
+	exec("wp --allow-root core install --skip-email --url=$wpURL --title='Raamattu Puhuu' --admin_user=$wpUser --admin_password=$wpPass --admin_email=$wpEmail");
 	exec("wp --allow-root core update-db");
-} 
+}
 
 // see if we need to copy files over
 if (file_exists('/var/www/html/wp-includes/version.php')) {
@@ -71,7 +72,14 @@ if (file_exists('/var/www/html/wp-includes/version.php')) {
 	$installedWPversion = '0.0.0';
 }
 
-fwrite($stderr, "Container WP version: $containerWPversion - Installed WP version: $installedWPversion\n");
+if (file_exists('/var/www/html-original/wp-includes/version.php')) {
+  include '/var/www/html-original/wp-includes/version.php';
+	$containerWPversion = $wp_version;
+} else {
+	$containerWPversion = '0.0.0';
+}
+
+fwrite($stderr, "Container requesting WP version: $containerWPversion - Installed WP version: $installedWPversion\n");
 if(version_compare($containerWPversion, $installedWPversion, '>')) {
 	fwrite($stderr, "Copying over wordpress files in container to /var/www/html\n");
 	exec('rsync -au /var/www/html-original/ /var/www/html');
@@ -94,7 +102,7 @@ if ($pluginInstall) {
 		fwrite($stderr, "Updating $plugin to the latest version\n");
 		exec("wp --allow-root plugin install $plugin --force");
 	}
-} 
+}
 
 EOPHP
 
