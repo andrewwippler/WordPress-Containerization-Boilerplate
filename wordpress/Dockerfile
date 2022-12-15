@@ -2,12 +2,13 @@ FROM php:8.0-fpm-alpine
 
 ENV WORDPRESS_VERSION=latest \
 	WORDPRESS_INSTALL=false \
-	WORDPRESS_PLUGINS=wp-smushit,wp-fastest-cache,google-sitemap-generator,jetpack \
+	WORDPRESS_PLUGINS=wp-smushit,jetpack \
 	WORDPRESS_PLUGINS_INSTALL=false \
 	WORDPRESS_USER_NAME=admin \
 	WORDPRESS_USER_PASS=wordpress \
 	WORDPRESS_USER_EMAIL=nobody@example.org \
-	WORDPRESS_USER_URL="http://localhost:8080"
+  WORDPRESS_DEBUG=false \
+  WORDPRESS_USER_URL="http://localhost:8080"
 
 # dependencies
 RUN apk add --no-cache \
@@ -20,13 +21,26 @@ RUN apk add --no-cache \
 RUN set -ex; \
 	\
 	apk add --no-cache --virtual .build-deps \
-		libjpeg-turbo-dev \
-		libpng-dev \
-	; \
+		  freetype-dev \
+      libjpeg-turbo-dev \
+      libwebp-dev \
+      libpng-dev \
+      libzip-dev \
+      oniguruma-dev \
+      icu-dev \
+      autoconf \
+      gcc \
+      g++ \
+      imagemagick-dev \
+      libtool \
+      make \
+  ; \
 	\
-	docker-php-ext-configure gd; \
-	docker-php-ext-install gd mysqli opcache; \
-	\
+	docker-php-ext-configure gd --with-freetype --with-webp --with-jpeg; \
+	docker-php-ext-install exif gd mysqli opcache mbstring zip intl; \
+  pecl install imagick; \
+  docker-php-ext-enable imagick; \
+  \
 	runDeps="$( \
 		scanelf --needed --nobanner --recursive \
 			/usr/local/lib/php/extensions \
